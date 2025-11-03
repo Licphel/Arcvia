@@ -1,0 +1,47 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "🐛 Debug",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/bin/arcvia-debug.exe",
+      "preLaunchTask": "build-debug",
+      "cwd": "${workspaceFolder}/bin",
+      "env": {
+        // this makes the debug really really slow.
+        // enable this only when debugging heap-corruption.
+        // (only for windows)
+        "_NO_DEBUG_HEAP": "1"
+      },
+      "initCommands": [
+        "settings set target.disable-aslr false",
+        "settings set target.skip-prologue false"
+      ],
+      "stopOnEntry": false,
+      "args": []
+    },
+    {
+      "name": "🚀 Perf Test",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/bin/arcvia-release.exe",
+      "preLaunchTask": "build-release",
+      "cwd": "${workspaceFolder}/bin",
+      "env": {
+        // this makes the debug really really slow.
+        // enable this only when debugging heap-corruption.
+        // (only for windows)
+        "_NO_DEBUG_HEAP": "1"
+      }
+    },
+    {
+      "name": "📦 Win Release",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/bin/arcvia-release.exe",
+      "preLaunchTask": "build-release",
+      "cwd": "${workspaceFolder}/bin"
+    }
+  ]
+}

@@ -1,0 +1,201 @@
+#include <memory>
+#include <string>
+
+#include "audio/device.h"
+#include "core/buffer.h"
+#include "core/io.h"
+#include "core/load.h"
+#include "core/log.h"
+#include "core/rand.h"
+#include "ctt.h"
+#include "gfx/atlas.h"
+#include "gfx/brush.h"
+#include "gfx/device.h"
+#include "gfx/font.h"
+#include "gfx/gui.h"
+#include "gfx/image.h"
+#include "gfx/mesh.h"
+#include "gfx/npatch.h"
+#include "lua/lua.h"
+#include "net/packet.h"
+#include "net/socket.h"
+#include "render/block_model.h"
+#include "render/chunk_model.h"
+#include "render/light.h"
+#include "world/block.h"
+#include "world/chunk.h"
+#include "world/dim.h"
+
+using namespace arc;
+
+int i;
+socket& sockc = *socket::remote;
+socket& socks = *socket::server;
+std::shared_ptr<gui> g;
+std::shared_ptr<gui_button> b;
+std::shared_ptr<gui_text_view> tv;
+std::shared_ptr<font> fnt;
+nine_patches pct;
+dimension* dim;
+std::shared_ptr<atlas> atl;
+
+struct posic {
+    double x, y;
+
+    void write(byte_buf& buf) {
+        buf.write<double>(x);
+        buf.write<double>(y);
+    }
+
+    void read(byte_buf& buf) {
+        x = buf.read<double>();
+        y = buf.read<double>();
+    }
+};
+
+int main() {
+    tk_make_handle();
+    tk_title("arcvia test");
+    tk_size(vec2(800, 450));
+    tk_icon(image::load(path::open_local("gfx/misc/logo.png")));
+    tk_end_make_handle();
+
+    R_make_nonnulls();
+    atl = atlas::make(1024, 1024);
+    atl->begin();
+    block_behavior beh = block_behavior();
+    beh.shape = block_shape::opaque;
+    auto DIRT_MODEL = R_block_models().make(
+        "arc:dirt", block_model{.dropper = block_dropper::repeat,
+                                .dynamic_render = false,
+                                .tex = atl->accept(image::load(path::open_local("gfx/dirt.png")))});
+    auto DIRT = R_blocks().make("arc:dirt", beh);
+    DIRT->model = DIRT_MODEL;
+    beh = block_behavior();
+    beh.shape = block_shape::opaque;
+    beh.cast_light = [](dimension* dim, const pos2i& pos, int pipe) {
+        return 0.5 * std::sin(pos.x + pipe * pos.y + pipe + clock::now().ticks / 15.0);
+    };
+    auto ROCK_MODEL = R_block_models().make(
+        "arc:rock", block_model{.dropper = block_dropper::repeat,
+                                .dynamic_render = false,
+                                .tex = atl->accept(image::load(path::open_local("gfx/rock.png")))});
+    auto ROCK = R_blocks().make("arc:rock", beh);
+    ROCK->model = ROCK_MODEL;
+    R_blocks().work();
+    R_block_models().work();
+    R_items().work();
+    R_block_models().work();
+    atl->end();
+
+    dim = new dimension();
+    auto chunk_ptr = std::make_shared<chunk>();
+    chunk_ptr->init(dim, {0, 0});
+    dim->set_chunk({0, 0}, chunk_ptr);
+    dim->init();
+    for (int x = 0; x < 16; x++) {
+        for (int y = 1; y < 16; y++) {
+            if (x != 4 && x != 5) dim->set_block(random::rg->next_bool() ? DIRT : ROCK, {x, y});
+            dim->set_back_block(random::rg->next_bool() ? DIRT : ROCK, {x, y});
+        }
+    }
+
+    fnt = font::load(path::open_local("gfx/font/main.ttf"), 12, font_style::regular);
+    auto tex = texture::make(image::load(path::open_local("gfx/lxj.png")));
+    pct = nine_patches(tex);
+    get_resource_map_()["arc:gfx/misc/test.png"] = tex;
+
+    lua_make_state();
+    lua_bind_modules();
+    lua_eval(io::read_str(path::open_local("main.lua")));
+    packet::mark_id<packet_2s_heartbeat>();
+    packet::mark_id<packet_dummy>();
+
+    g = make_gui<gui>();
+
+    b = make_gui_component<gui_button>();
+    b->locator = [](quad& region, const quad& view) {
+        region = quad::center(view.center_x(), view.center_y(), 200, 40);
+    };
+    b->on_render = [](brush* brush, gui_button* cmp) {
+        if (cmp->state == button_state::idle)
+            brush->cl_set(color(1, 1, 1, 1));
+        else if (cmp->state == button_state::hovering)
+            brush->cl_set(color(0.8, 0.8, 1, 1));
+        else if (cmp->state == button_state::pressed)
+            brush->cl_set(color(0.6, 0.6, 1, 1));
+        pct.make_vtx(brush, b->region);
+        brush->cl_norm();
+    };
+    b->on_click = []() { print(log_level::info, "I'm clicked!"); };
+    g->join(b);
+
+    tv = make_gui_component<gui_text_view>();
+    tv->font = fnt;
+    tv->locator = [](quad& region, const quad& view) {
+        region = quad::center(view.center_x() - 250, view.center_y(), 300, 120);
+    };
+    tv->on_render = [](brush* brush, gui_text_view* cmp) { brush->draw_rect_outline(cmp->region); };
+    g->join(tv);
+
+    g->display();
+
+    uint16_t port = gen_tcp_port_();
+    socks.start(port);
+    sockc.connect(connection_type::lan);
+
+    event_tick += [&]() {
+        dim->tick_systems();
+        lua_protected_call(lua_get<lua_function>("tick"), dim);
+        sockc.send_to_server(packet::make<packet_dummy>("hello world"));
+        sockc.tick();
+        socks.tick();
+        bool b = random::rg->next_bool();
+        dim->set_block(b ? DIRT : ROCK, {2, 2});
+        dim->tick();
+        dim->light_executor->tick(quad::center(10, 10, 40, 30));
+    };
+
+    event_render += [&](brush* brush) {
+        brush->clear({0, 0, 0, 1});
+        brush->use_camera(camera::normal());
+        brush->use_blend(blend_mode::normal);
+        gui::tick_currents();
+        // gui::render_currents(brush);
+
+        brush->use_camera(camera::gui());
+        fnt->make_vtx(brush, "fps: " + std::to_string(tk_real_fps()), 15, 15);
+        // lua_protected_call(lua_get<lua_function>("draw"), brush);
+
+        brush->use_camera(camera::world({10, 10}, 40));
+        reflush_chunk_models_(dim, {0, 0});
+        chunk_ptr->tick();
+        lwrd::world_render_begin();
+        lwrd::world_back_buffer()->retry(brush);
+        chunk_ptr->model->render(brush, chunk_mesh_layer::back_block);
+        chunk_ptr->model->render(brush, chunk_mesh_layer::back_block_border);
+        lwrd::world_back_buffer()->record(brush);
+        lwrd::world_front_buffer()->retry(brush);
+        chunk_ptr->model->render(brush, chunk_mesh_layer::furniture);
+        chunk_ptr->model->render(brush, chunk_mesh_layer::block);
+        chunk_ptr->model->render(brush, chunk_mesh_layer::block_border);
+        chunk_ptr->model->render(brush, chunk_mesh_layer::overlay);
+        lwrd::world_front_buffer()->record(brush);
+        lwrd::world_render(brush, dim);
+        brush->draw_rect_outline({0, 0, 1, 1});
+    };
+
+    tk_make_device();
+    tk_set_device_option(device_option::roll_off, 2.0);
+    tk_set_device_option(device_option::ref_dist, 8.0);
+    tk_set_device_option(device_option::max_dist, 42.0);
+    tk_set_device_option(device_option::listener, vec3(0, 0, 0));
+    tk_end_make_device();
+
+    tk_lifecycle(60, 20, false);
+
+    sockc.disconnect();
+    socks.stop();
+
+    delete dim;
+}

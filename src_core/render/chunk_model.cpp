@@ -12,6 +12,7 @@
 #include "world/block.h"
 #include "world/chunk.h"
 #include "world/dim.h"
+#include "world/liquid.h"
 #include "world/pos.h"
 
 namespace arc {
@@ -228,6 +229,11 @@ block_behavior* fast_get_block(int x, int y) {
 block_behavior* fast_get_back_block(int x, int y) {
     auto chunk_ = fast_get_chunk(x, y);
     return chunk_ ? chunk_->find_back_block({x, y}) : block_void;
+}
+
+liquid_stack fast_get_liquid_stack(int x, int y) {
+    auto chunk_ = fast_get_chunk(x, y);
+    return chunk_ ? chunk_->find_liquid_stack({x, y}) : liquid_stack(liquid_void, 0);
 }
 
 void reflush_chunk_models_(dimension* dim, const pos2i& ct) {

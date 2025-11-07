@@ -1,12 +1,13 @@
 #pragma once
 #include <cstddef>
-#include <functional>
 #include <vector>
 
 #include "core/codec.h"
 #include "core/math.h"
+#include "core/prop.h"
 #include "world/entity.h"
 #include "world/group.h"
+#include "world/item.h"
 #include "world/pos.h"
 
 namespace arc {
@@ -77,17 +78,18 @@ struct block_behavior : group {
     block_tick_mode tick_mode = block_tick_mode::random;
     block_shape shape = block_shape::vaccum;
     block_model* model;
-    double friction = 0.65;
 
     bool contains(const location& loc) const override;
 
-    std::function<float(dimension* dim, const pos2i& pos, int pipe)> cast_light;
-    std::function<float(dimension* dim, const pos2i& pos, int pipe, float val)> block_light;
-    std::function<quad(dimension* dim, const pos2i& pos)> render_place;
-    std::function<cube_outline&(dimension* dim, const pos2i& pos, obs<entity> e)> voxel_shape;
-    std::function<std::vector<item_stack>(dimension* dim, const pos2i& pos, const uuid& e)> get_loot;
-    std::function<void(dimension* dim, const pos2i& pos)> tick;
-    std::function<block_entity(dimension* dim, const pos2i& pos)> make_entity;
+    property<float(dimension* dim, const pos2i& pos, int pipe)> cast_light = 0.0;
+    property<float(dimension* dim, const pos2i& pos, int pipe, float val)> block_light;
+    property<quad(dimension* dim, const pos2i& pos)> render_place;
+    property<cube_outline*(dimension* dim, const pos2i& pos, obs<entity> e)> voxel_shape;
+    property<std::vector<item_stack>(dimension* dim, const pos2i& pos, const uuid& e)> get_loot;
+    property<void(dimension* dim, const pos2i& pos)> tick;
+    property<block_entity(dimension* dim, const pos2i& pos)> make_entity;
+    property<double(dimension* dim, const pos2i& pos)> friction = 0.5;
+    property<double(dimension* dim, const pos2i& pos)> restitution = 0.0;
 };
 
 }  // namespace arc

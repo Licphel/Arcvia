@@ -14,20 +14,20 @@
 
 namespace arc {
 
+inline int wrap_pos(int v) {
+    int wrapped = v & (ARC_CHUNK_SIZE - 1);
+    return wrapped < 0 ? wrapped + ARC_CHUNK_SIZE : wrapped;
+}
+
 template <int C>
 struct chunk_storage_ {
     uint8_t* bytes = new uint8_t[ARC_CHUNK_SIZE * ARC_CHUNK_SIZE * C]();
 
     ~chunk_storage_() { delete[] bytes; }
 
-    inline int wrap_(int v) {
-        int wrapped = v & (ARC_CHUNK_SIZE - 1);
-        return wrapped < 0 ? wrapped + ARC_CHUNK_SIZE : wrapped;
-    }
-
     uint8_t* find(int x, int y) {
-        int wx = wrap_(x);
-        int wy = wrap_(y);
+        int wx = wrap_pos(x);
+        int wy = wrap_pos(y);
         return bytes + (wy * ARC_CHUNK_SIZE + wx) * C;
     }
 };
@@ -47,6 +47,8 @@ struct chunk {
     std::unordered_map<pos2i, std::shared_ptr<block_entity>> block_entity_map;
     std::unordered_map<pos2i, std::shared_ptr<codec_map>> place_cdmap_map;
     pos2i pos;
+    int min_x, min_y;
+    int max_x, max_y;
     dimension* dim = nullptr;
     chunk_model* model = nullptr;
 
@@ -74,8 +76,8 @@ struct chunk {
 template <typename F>
 struct scan_cxc {
     scan_cxc(chunk* cptr, F&& f) {
-        int x0 = cptr->pos.x * ARC_CHUNK_SIZE;
-        int y0 = cptr->pos.y * ARC_CHUNK_SIZE;
+        int x0 = cptr->min_x;
+        int y0 = cptr->min_y;
         for (int x = x0; x < ARC_CHUNK_SIZE + x0; x++) {
             for (int y = y0; y < ARC_CHUNK_SIZE + y0; y++) {
                 f({x, y});

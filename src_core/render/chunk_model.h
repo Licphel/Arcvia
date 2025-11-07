@@ -58,6 +58,7 @@ struct chunk_model {
 obs<chunk> fast_get_chunk(int x, int y);
 block_behavior* fast_get_block(int x, int y);
 block_behavior* fast_get_back_block(int x, int y);
+liquid_stack fast_get_liquid_stack(int x, int y);
 void reflush_chunk_models_(dimension* dim, const pos2i& ct);
 
 }  // namespace arc

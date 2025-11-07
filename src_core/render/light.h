@@ -3,7 +3,7 @@
 #include <atomic>
 #include <memory>
 
-#include "gfx/fbuf.h"
+#include "core/math.h"
 
 namespace arc {
 
@@ -60,14 +60,5 @@ struct light_engine {
     void spread(int x, int y);
     void render_meshes(const quad& cam);
 };
-
-namespace lwrd {
-
-void world_render_begin();
-std::shared_ptr<framebuffer> world_back_buffer();
-std::shared_ptr<framebuffer> world_front_buffer();
-void world_render(brush* brush, dimension* dim);
-
-}  // namespace lwrd
 
 }  // namespace arc

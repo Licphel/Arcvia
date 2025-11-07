@@ -1,8 +1,8 @@
 #pragma once
 #include <string>
 
-#include "core/delg.h"
 #include "core/math.h"
+#include "core/multic.h"
 #include "gfx/brush.h"
 #include "gfx/image.h"
 
@@ -10,14 +10,14 @@ namespace arc {
 
 struct brush;
 
-inline delegate<void()> event_tick;
-inline delegate<void(brush* brush)> event_render;
-inline delegate<void()> event_dispose;
-inline delegate<void(int w, int h)> event_resize;
-inline delegate<void(int button, int action, int mods)> event_mouse_state;
-inline delegate<void(double x, double y)> event_cursor_pos;
-inline delegate<void(double x, double y)> event_mouse_scroll;
-inline delegate<void(int button, int scancode, int action, int mods)> event_key_state;
+inline multicall<void()> event_tick;
+inline multicall<void(brush* brush)> event_render;
+inline multicall<void()> event_dispose;
+inline multicall<void(int w, int h)> event_resize;
+inline multicall<void(int button, int action, int mods)> event_mouse_state;
+inline multicall<void(double x, double y)> event_cursor_pos;
+inline multicall<void(double x, double y)> event_mouse_scroll;
+inline multicall<void(int button, int scancode, int action, int mods)> event_key_state;
 
 int tk_real_fps();
 int tk_real_tps();

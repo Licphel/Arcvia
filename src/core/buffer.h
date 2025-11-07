@@ -33,7 +33,7 @@ T to_native_endian(T value) {
 }
 
 template <typename T>
-T advance_read_ptr_(uint8_t* ptr) {
+T advance_read_ptr_(uint8_t*& ptr) {
     T value;
     std::memcpy(&value, ptr, sizeof(T));
     ptr += sizeof(T);
@@ -41,7 +41,7 @@ T advance_read_ptr_(uint8_t* ptr) {
 }
 
 template <typename T>
-void advance_write_ptr_(uint8_t* ptr, const T& v) {
+void advance_write_ptr_(uint8_t*& ptr, const T& v) {
     T swapv = to_native_endian(v);
     std::memcpy(ptr, &swapv, sizeof(T));
     ptr += sizeof(T);

@@ -6,19 +6,19 @@
 namespace arc {
 
 template <typename Sig>
-class delegate;
+class multicall;
 
 template <typename R, typename... Args>
-struct delegate<R(Args...)> {
+struct multicall<R(Args...)> {
     using handler = std::function<R(Args...)>;
     std::vector<handler> handlers_;
 
-    delegate& operator+=(handler h) {
+    multicall& operator+=(handler h) {
         if (h) handlers_.push_back(std::move(h));
         return *this;
     }
 
-    delegate& operator-=(const handler& h) {
+    multicall& operator-=(const handler& h) {
         auto it = std::find(handlers_.begin(), handlers_.end(), h);
         if (it != handlers_.end()) handlers_.erase(it);
         return *this;
@@ -35,15 +35,15 @@ struct delegate<R(Args...)> {
 };
 
 template <typename... Args>
-struct delegate<void(Args...)> {
+struct multicall<void(Args...)> {
     using handler = std::function<void(Args...)>;
     std::vector<handler> handlers_;
 
-    delegate& operator+=(handler h) {
+    multicall& operator+=(handler h) {
         if (h) handlers_.push_back(std::move(h));
         return *this;
     }
-    delegate& operator-=(const handler& h) {
+    multicall& operator-=(const handler& h) {
         auto it = std::find(handlers_.begin(), handlers_.end(), h);
         if (it != handlers_.end()) handlers_.erase(it);
         return *this;

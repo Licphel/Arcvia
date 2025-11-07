@@ -7,7 +7,7 @@
 
 #include "core/io.h"
 #include "core/loc.h"
-#include "core/delg.h"
+#include "core/multic.h"
 
 namespace arc {
 
@@ -25,7 +25,7 @@ T fetch(const location& loc) {
 enum class loader_equip_m { png_tex, png_img, txt, fnt, shd, wav, lua };
 
 struct scan_loader {
-    using proc_strategy = delegate<void(const path& path_, const location& loc)>;
+    using proc_strategy = multicall<void(const path& path_, const location& loc)>;
 
     std::string scope;
     path root;
@@ -35,8 +35,8 @@ struct scan_loader {
     std::unordered_map<std::string, proc_strategy> process_strategy_map;
     std::stack<std::function<void()>> tasks;
     std::vector<std::shared_ptr<scan_loader>> subloaders;
-    delegate<void()> event_on_start;
-    delegate<void()> event_on_end;
+    multicall<void()> event_on_start;
+    multicall<void()> event_on_end;
     bool start_called_;
     bool end_called_;
 

@@ -10,6 +10,7 @@
 #include "core/codec.h"
 #include "ctt.h"
 #include "entity.h"
+#include "liquid.h"
 #include "render/chunk_model.h"
 #include "world/block.h"
 #include "world/pos.h"
@@ -21,6 +22,10 @@ chunk::~chunk() { delete model; }
 void chunk::init(dimension* dim, const pos2i& pos) {
     this->dim = dim;
     this->pos = pos;
+    min_x = static_cast<int>(pos.x * ARC_CHUNK_SIZE);
+    min_y = static_cast<int>(pos.y * ARC_CHUNK_SIZE);
+    max_x = min_x + ARC_CHUNK_SIZE - 1;
+    max_y = min_y + ARC_CHUNK_SIZE - 1;
     place_cdmap_map.reserve(ARC_CHUNK_SIZE * ARC_CHUNK_SIZE);
     block_entity_map.reserve(ARC_CHUNK_SIZE * ARC_CHUNK_SIZE);
     model = new chunk_model();
@@ -30,16 +35,18 @@ void chunk::init(dimension* dim, const pos2i& pos) {
 void chunk::tick() {
     model->tick();
     tick_entities();
+    liquid_flow_engine(obs<chunk>::unsafe_make(this));
 }
 
 block_behavior* chunk::find_block(const pos2i& pos) {
-    uint32_t bid = advance_read_ptr_<uint32_t>(blocks_.find(pos.x, pos.y));
+    auto* ptr = blocks_.find(pos.x, pos.y);
+    uint32_t bid = advance_read_ptr_<uint32_t>(ptr);
     return R_blocks()[bid];
 }
 
 void chunk::set_block(block_behavior* block, const pos2i& pos, set_block_flag flag) {
-    uint32_t bid = block->id;
-    advance_write_ptr_<uint32_t>(blocks_.find(pos.x, pos.y), bid);
+    auto* ptr = blocks_.find(pos.x, pos.y);
+    advance_write_ptr_<uint32_t>(ptr, static_cast<uint32_t>(block->id));
 
     if (block->shape == block_shape::furniture) {
         model->rebuild(pos, chunk_mesh_layer::furniture);
@@ -50,13 +57,14 @@ void chunk::set_block(block_behavior* block, const pos2i& pos, set_block_flag fl
 }
 
 block_behavior* chunk::find_back_block(const pos2i& pos) {
-    uint32_t bid = advance_read_ptr_<uint32_t>(back_blocks_.find(pos.x, pos.y));
+    auto* ptr = back_blocks_.find(pos.x, pos.y);
+    uint32_t bid = advance_read_ptr_<uint32_t>(ptr);
     return R_blocks()[bid];
 }
 
 void chunk::set_back_block(block_behavior* block, const pos2i& pos, set_block_flag flag) {
-    uint32_t bid = block->id;
-    advance_write_ptr_<uint32_t>(back_blocks_.find(pos.x, pos.y), bid);
+    auto* ptr = back_blocks_.find(pos.x, pos.y);
+    advance_write_ptr_<uint32_t>(ptr, static_cast<uint32_t>(block->id));
 
     model->rebuild(pos, chunk_mesh_layer::back_block);
     model->ao_rebuild = true;
@@ -73,12 +81,12 @@ liquid_stack chunk::find_liquid_stack(const pos2i& pos) {
     auto* ptr = liquids_.find(pos.x, pos.y);
     uint32_t lid = advance_read_ptr_<uint32_t>(ptr);
     uint8_t amt = advance_read_ptr_<uint8_t>(ptr);
-    return {R_liquids()[lid], amt};
+    return liquid_stack(R_liquids()[lid], amt);
 }
 
 void chunk::set_liquid_stack(const liquid_stack& s, const pos2i& pos) {
     auto* ptr = liquids_.find(pos.x, pos.y);
-    advance_write_ptr_<uint32_t>(ptr, s.liquid->id);
+    advance_write_ptr_<uint32_t>(ptr, static_cast<uint32_t>(s.liquid->id));
     advance_write_ptr_<uint8_t>(ptr, s.amount);
 }
 

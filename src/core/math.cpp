@@ -230,6 +230,6 @@ double quad::corner_x() const { return x; }
 double quad::corner_y() const { return y; }
 double quad::prom_x() const { return x + width; }
 double quad::prom_y() const { return y + height; }
-double quad::area() const { return width * height; }
+double quad::area() const { return width < 0 || height < 0 ? 0 : width * height; }
 
 }  // namespace arc

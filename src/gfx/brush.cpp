@@ -45,7 +45,7 @@ brush::brush() {
 
 graph_state& brush::current_state() { return state_; }
 
-void brush::cl_norm() { cl_set({}); }
+void brush::cl_norm() { cl_set(color()); }
 
 void brush::cl_set(const color& col) { vertex_color[0] = vertex_color[1] = vertex_color[2] = vertex_color[3] = col; }
 

@@ -25,10 +25,13 @@
 #include "render/block_model.h"
 #include "render/chunk_model.h"
 #include "render/light.h"
+#include "render/liquid_model.h"
+#include "render/world_model.h"
 #include "world/block.h"
 #include "world/chunk.h"
 #include "world/dim.h"
 #include "world/entity.h"
+#include "world/liquid.h"
 
 using namespace arc;
 
@@ -86,10 +89,27 @@ int main() {
                                 .tex = atl->accept(image::load(path::open_local("gfx/rock.png")))});
     auto ROCK = R_blocks().make("arc:rock", beh);
     ROCK->model = ROCK_MODEL;
+
+    liquid_behavior lbeh = liquid_behavior();
+    lbeh.cast_light = [](dimension* dim, const pos2i& pos, liquid_stack& s, int pipe) {
+        if (pipe == 0) return 0.8;
+        if (pipe == 1) return 0.67;
+        return 0.35;
+    };
+    lbeh.density = 1000;
+    lbeh.stickiness = 1000;
+    auto LAVA = R_liquids().make("lava", lbeh);
+    auto LAVA_MODEL = R_liquid_models().make(
+        "lava", liquid_model{.tex = texture::make(image::load(path::open_local("gfx/lava.png"))),
+                             .tex_edge = texture::make(image::load(path::open_local("gfx/lava_edge.png")))});
+    LAVA->model = LAVA_MODEL;
+
     R_blocks().work();
     R_block_models().work();
     R_items().work();
     R_block_models().work();
+    R_liquids().work();
+    R_liquid_models().work();
     atl->end();
 
     dim = new dimension();
@@ -170,13 +190,16 @@ int main() {
         bool b = random::rg->next_bool();
         dim->set_block(b ? DIRT : ROCK, {2, 2});
         dim->tick();
-        dim->light_executor->tick(quad::center(10, 10, 40, 30));
+        dim->light_executor->tick(quad::center(10, 10, 60, 45));
 
-        const double vi = 8.5;
-        if (key_held(ARC_KEY_D)) e_0->move({vi * clock::now().delta, 0}, {4, 0});
-        if (key_held(ARC_KEY_A)) e_0->move({-vi * clock::now().delta, 0}, {4, 0});
+        const double vi = 20.0;
+        if (key_held(ARC_KEY_D)) e_0->move({vi * clock::now().delta, 0}, {3, 0}, physic_ignore::land_f);
+        if (key_held(ARC_KEY_A)) e_0->move({-vi * clock::now().delta, 0}, {3, 0}, physic_ignore::land_f);
         if (key_held(ARC_KEY_SPACE) && (e_0->phy_status & phybit::touch_d)) {
-            e_0->impulse({0, -20.5 * 60});
+            e_0->impulse({0, -5.0 * 60});
+        }
+        if (key_held(ARC_KEY_SPACE) && (e_0->phy_status & phybit::swim)) {
+            e_0->impulse({0, -5.0 * 60 * clock::now().delta});
         }
 
         camera& c = camera::world({10, 10}, 60);
@@ -184,7 +207,10 @@ int main() {
         c.unproject(curs);
 
         if (key_held(ARC_MOUSE_BUTTON_LEFT)) dim->set_block(block_void, {curs.x, curs.y});
-        if (key_held(ARC_MOUSE_BUTTON_RIGHT)) dim->set_block(ROCK, {curs.x, curs.y});
+        if (key_held(ARC_MOUSE_BUTTON_RIGHT, ARC_MOD_CONTROL))
+            dim->set_liquid_stack({LAVA, liquid_stack::max_amount}, {curs.x, curs.y});
+        else if (key_held(ARC_MOUSE_BUTTON_RIGHT))
+            dim->set_block(ROCK, {curs.x, curs.y});
     };
 
     event_render += [&](brush* brush) {
@@ -201,24 +227,10 @@ int main() {
 
         brush->use_camera(camera::world({10, 10}, 60));
         reflush_chunk_models_(dim, {0, 0});
-        lwrd::world_render_begin();
-        lwrd::world_back_buffer()->retry(brush);
-        chunk_ptr->model->render(brush, chunk_mesh_layer::back_block);
-        chunk_ptr1->model->render(brush, chunk_mesh_layer::back_block);
-        chunk_ptr->model->render(brush, chunk_mesh_layer::back_block_border);
-        chunk_ptr1->model->render(brush, chunk_mesh_layer::back_block_border);
-        lwrd::world_back_buffer()->record(brush);
-        lwrd::world_front_buffer()->retry(brush);
-        chunk_ptr->model->render(brush, chunk_mesh_layer::furniture);
-        chunk_ptr1->model->render(brush, chunk_mesh_layer::furniture);
-        brush->draw_rect_outline(e_0->lerped_box_());
-        chunk_ptr->model->render(brush, chunk_mesh_layer::block);
-        chunk_ptr1->model->render(brush, chunk_mesh_layer::block);
-        chunk_ptr->model->render(brush, chunk_mesh_layer::block_border);
-        chunk_ptr1->model->render(brush, chunk_mesh_layer::block_border);
 
-        lwrd::world_front_buffer()->record(brush);
-        lwrd::world_render(brush, dim);
+        wrd::retry();
+        wrd::render(brush, dim, brush->camera_.view);
+        wrd::submit(brush, dim);
         brush->draw_rect_outline({0, 0, 1, 1});
     };
 

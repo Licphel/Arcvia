@@ -12,7 +12,7 @@ location::location(const std::string& cat) {
     if (pos == std::string::npos) {
         key = cat;
         scope = ARC_LIB_NAME;
-        concat = ARC_LIB_NAME + cat;
+        concat = std::string(ARC_LIB_NAME) + ":" + cat;
     } else {
         key = cat.substr(pos + 1);
         scope = cat.substr(0, pos);

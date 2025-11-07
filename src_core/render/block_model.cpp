@@ -60,8 +60,8 @@ void block_model::default_make_block_(brush* brush, block_model* self, dimension
     }
 }
 
-template <int Bd>
-void Bd_make_border_(brush* brush, block_model* self, dimension* dim, block_behavior* block, const pos2d& pos) {
+template <int Binding_option_>
+void raw_make_border_(brush* brush, block_model* self, dimension* dim, block_behavior* block, const pos2d& pos) {
     const bool RANDOM_BORDER = true;
 
     if (!block->shape.solid) return;
@@ -79,7 +79,7 @@ void Bd_make_border_(brush* brush, block_model* self, dimension* dim, block_beha
     block_behavior* rub;
     block_behavior* rdb;
 
-    if constexpr (Bd == 0) {
+    if constexpr (Binding_option_ == 0) {
         ub = fast_get_block(x, y - 1);
         db = fast_get_block(x, y + 1);
         lb = fast_get_block(x - 1, y);
@@ -88,7 +88,7 @@ void Bd_make_border_(brush* brush, block_model* self, dimension* dim, block_beha
         ldb = fast_get_block(x - 1, y + 1);
         rub = fast_get_block(x + 1, y - 1);
         rdb = fast_get_block(x + 1, y + 1);
-    } else if constexpr (Bd == 1) {
+    } else if constexpr (Binding_option_ == 1) {
         ub = fast_get_back_block(x, y - 1);
         db = fast_get_back_block(x, y + 1);
         lb = fast_get_back_block(x - 1, y);
@@ -158,12 +158,12 @@ void Bd_make_border_(brush* brush, block_model* self, dimension* dim, block_beha
 
 void block_model::default_make_border_(brush* brush, block_model* self, dimension* dim, block_behavior* block,
                                        const pos2d& pos) {
-    Bd_make_border_<0>(brush, self, dim, block, pos);
+    raw_make_border_<0>(brush, self, dim, block, pos);
 }
 
 void block_model::default_make_border_back_(brush* brush, block_model* self, dimension* dim, block_behavior* block,
                                        const pos2d& pos) {
-    Bd_make_border_<1>(brush, self, dim, block, pos);
+    raw_make_border_<1>(brush, self, dim, block, pos);
 }
 
 }  // namespace arc

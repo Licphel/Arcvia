@@ -2,6 +2,8 @@
 
 #include <cmath>
 
+#include "core/math.h"
+
 namespace arc {
 
 // pos2i
@@ -25,9 +27,7 @@ pos2i pos2i::findc() const { return pos2i(arc::findc(static_cast<double>(x)), ar
 
 pos2i::operator pos2d() const { return pos2d(x + 0.5, y + 0.5); }
 
-pos2d pos2i::raw_2d() const {
-    return pos2d(static_cast<double>(x), static_cast<double>(y));
-}
+pos2d pos2i::raw_2d() const { return pos2d(static_cast<double>(x), static_cast<double>(y)); }
 
 double pos2i::dist_powered(const pos2i& v1, const pos2i& v2) {
     double dx = static_cast<double>(v1.x - v2.x);
@@ -46,7 +46,7 @@ pos2d pos2d::operator+(const pos2d& v) const { return {x + v.x, y + v.y}; }
 pos2d pos2d::operator-(const pos2d& v) const { return {x - v.x, y - v.y}; }
 pos2d pos2d::operator*(const pos2d& v) const { return {x * v.x, y * v.y}; }
 pos2d pos2d::operator/(const pos2d& v) const { return {x / v.x, y / v.y}; }
-bool pos2d::operator==(const pos2d& v) const { return std::abs(x - v.x) < 10E-5 && std::abs(y - v.y) < 10E-5; }
+bool pos2d::operator==(const pos2d& v) const { return std::abs(x - v.x) < ARC_MTOL && std::abs(y - v.y) < ARC_MTOL; }
 bool pos2d::operator<(const pos2d& v) const { return x < v.x && y < v.y; }
 
 pos2i pos2d::findc() const { return pos2i(arc::findc(x), arc::findc(y)); }

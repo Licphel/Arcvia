@@ -54,12 +54,10 @@ void lua_make_state() {
 }
 
 lua_table lua_make_table() { return lua.create_table(); }
-
 void lua_eval(const std::string& code) { lua.script(code); }
-
 void lua_eval(lua_program& code) { code(); }
-
 lua_program lua_compile(const std::string& code) { return lua.load(code); }
+void lua_free() { lua = nullptr; }
 
 extern void lua_bind_gfx(lua_state& lua);
 extern void lua_bind_math(lua_state& lua);

@@ -7,6 +7,7 @@
 
 #include "core/codec.h"
 #include "core/obsptr.h"
+#include "pos.h"
 #include "world/block.h"
 #include "world/liquid.h"
 #include "world/pos.h"
@@ -19,7 +20,16 @@ struct chunk_storage_ {
 
     ~chunk_storage_() { delete[] bytes; }
 
-    uint8_t* find(int x, int y) { return bytes + (y * ARC_CHUNK_SIZE + x) * C; }
+    inline int wrap_(int v) {
+        int wrapped = v & (ARC_CHUNK_SIZE - 1);
+        return wrapped < 0 ? wrapped + ARC_CHUNK_SIZE : wrapped;
+    }
+
+    uint8_t* find(int x, int y) {
+        int wx = wrap_(x);
+        int wy = wrap_(y);
+        return bytes + (wy * ARC_CHUNK_SIZE + wx) * C;
+    }
 };
 
 enum class set_block_flag { no = 1 << 0L, silent = 1 << 1L, admin = 1 << 2L };
@@ -27,7 +37,7 @@ enum class set_block_flag { no = 1 << 0L, silent = 1 << 1L, admin = 1 << 2L };
 struct chunk_model;
 struct entity;
 
-struct chunk : public std::enable_shared_from_this<chunk> {
+struct chunk {
     chunk_storage_<4> back_blocks_;
     chunk_storage_<4 + 2> blocks_;
     chunk_storage_<4> biomes_;
@@ -59,6 +69,19 @@ struct chunk : public std::enable_shared_from_this<chunk> {
     void spawn_entity(std::shared_ptr<entity> e);
     void move_entity(std::shared_ptr<entity> e, chunk* newc);
     void clear_entity();
+};
+
+template <typename F>
+struct scan_cxc {
+    scan_cxc(chunk* cptr, F&& f) {
+        int x0 = cptr->pos.x * ARC_CHUNK_SIZE;
+        int y0 = cptr->pos.y * ARC_CHUNK_SIZE;
+        for (int x = x0; x < ARC_CHUNK_SIZE + x0; x++) {
+            for (int y = y0; y < ARC_CHUNK_SIZE + y0; y++) {
+                f({x, y});
+            }
+        }
+    }
 };
 
 }  // namespace arc

@@ -9,6 +9,7 @@ namespace arc {
 vec2::vec2() = default;
 vec2::vec2(double x, double y) : x(x), y(y) {}
 
+vec2 vec2::operator-() const { return vec2(-x, -y); }
 vec2 vec2::operator+(const vec2& v) const { return vec2(x + v.x, y + v.y); }
 vec2 vec2::operator-(const vec2& v) const { return vec2(x - v.x, y - v.y); }
 vec2 vec2::operator*(const vec2& v) const { return vec2(x * v.x, y * v.y); }
@@ -33,6 +34,7 @@ double vec2::dot(const vec2& v1, const vec2& v2) { return v1.x * v2.x + v1.y * v
 // vec3
 vec3::vec3() = default;
 vec3::vec3(double x, double y, double z) : x(x), y(y), z(z) {}
+vec3 vec3::operator-() const { return vec3(-x, -y, -z); }
 vec3 vec3::operator+(const vec3& v) const { return vec3(x + v.x, y + v.y, z + v.z); }
 vec3 vec3::operator-(const vec3& v) const { return vec3(x - v.x, y - v.y, z - v.z); }
 vec3 vec3::operator*(const vec3& v) const { return vec3(x * v.x, y * v.y, z * v.z); }

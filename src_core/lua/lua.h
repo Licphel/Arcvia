@@ -31,6 +31,7 @@ void lua_bind_modules();
 void lua_eval(const std::string& code);
 void lua_eval(lua_program& code);
 lua_program lua_compile(const std::string& code);
+void lua_free();
 
 template <typename T>
 void lua_push(const std::string& key, const T& v) {

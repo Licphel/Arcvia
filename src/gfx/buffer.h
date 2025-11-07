@@ -26,7 +26,7 @@ struct complex_buffer {
             vertex_buf.reserve(vertex_buf.capacity() * 2);
             vcap_changed_ = true;
         }
-
+     
         vertex_buf.resize(old + s);
         std::memcpy(vertex_buf.data() + old, &t, s);
         dirty = true;

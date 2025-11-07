@@ -3,6 +3,7 @@
 #include <memory>
 #include <vector>
 
+#include "core/obsptr.h"
 #include "gfx/brush.h"
 #include "gfx/mesh.h"
 #include "world/block.h"
@@ -11,7 +12,7 @@
 
 #define ARC_CHUNK_CACHE_SIZE_X 10
 #define ARC_CHUNK_CACHE_SIZE_Y 8
-#define ARC_MULTITHREADED_MESH_BUILD
+// #define ARC_MULTITHREADED_MESH_BUILD
 
 namespace arc {
 
@@ -32,10 +33,10 @@ struct chunk_model {
         pos2i pos;
         block_behavior* obj;
     };
-    
+
     chunk* parent;
-    bool should_rebuild[ARC_CHUNK_MESH_LAYER_COUNT] = {false};
-    bool ao_rebuild = false;
+    std::atomic_bool should_rebuild[ARC_CHUNK_MESH_LAYER_COUNT] = {false};
+    std::atomic_bool ao_rebuild = false;
     std::atomic_bool built[ARC_CHUNK_MESH_LAYER_COUNT] = {false};
     // double buffer
     std::shared_ptr<mesh> meshes[ARC_CHUNK_MESH_LAYER_COUNT];
@@ -54,7 +55,7 @@ struct chunk_model {
     void render(brush* brush, chunk_mesh_layer layer);
 };
 
-chunk* fast_get_chunk(int x, int y);
+obs<chunk> fast_get_chunk(int x, int y);
 block_behavior* fast_get_block(int x, int y);
 block_behavior* fast_get_back_block(int x, int y);
 void reflush_chunk_models_(dimension* dim, const pos2i& ct);

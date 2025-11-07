@@ -3,6 +3,7 @@
 #include <memory>
 #include <utility>
 
+#include "core/obsptr.h"
 #include "core/thrp.h"
 #include "gfx/device.h"
 #include "gfx/fbuf.h"
@@ -293,13 +294,13 @@ void light_engine::calculate(const quad& cam) {
     aabb.resize(x1 - x0, y1 - y0);
     aabb.locate_center((x1 + x0) / 2.0, (y1 + y0) / 2.0);
 
-    for (entity& e : dimh::get_intersected_entities(dim, aabb)) {
-        if (!e.cast_light) continue;
-        float r = e.cast_light(&e, 0);
-        float g = e.cast_light(&e, 1);
-        float b = e.cast_light(&e, 2);
+    for (obs<entity> e : dim_util::get_intersected_entities(dim, aabb)) {
+        if (!e->cast_light) continue;
+        float r = e->cast_light(e, 0);
+        float g = e->cast_light(e, 1);
+        float b = e->cast_light(e, 2);
 
-        lit_smooth(e.motion->pos.x, e.motion->pos.y, r, g, b);
+        lit_smooth(e->pos.x, e->pos.y, r, g, b);
     }
 
     for (int x = x1; x >= x0; x--)

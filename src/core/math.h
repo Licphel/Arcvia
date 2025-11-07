@@ -1,5 +1,7 @@
 #pragma once
 
+#define ARC_MTOL 10E-4
+
 namespace arc {
 
 // immutable 2d vector
@@ -10,6 +12,7 @@ struct vec2 {
     vec2();
     vec2(double x, double y);
 
+    vec2 operator-() const;
     vec2 operator+(const vec2& v) const;
     vec2 operator-(const vec2& v) const;
     vec2 operator*(const vec2& v) const;
@@ -35,6 +38,7 @@ struct vec3 {
     vec3();
     vec3(double x, double y, double z);
 
+    vec3 operator-() const;
     vec3 operator+(const vec3& v) const;
     vec3 operator-(const vec3& v) const;
     vec3 operator*(const vec3& v) const;

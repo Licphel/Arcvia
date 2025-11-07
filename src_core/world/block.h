@@ -44,6 +44,13 @@ struct cube_outline : std::vector<cube> {
     static cube_outline half;
     static cube_outline solid;
 
+    template <typename... Args>
+    static cube_outline make(const Args&... args) {
+        cube_outline result_;
+        (result_.push_back(args), ...);
+        return result_;
+    }
+
     bool intersects(double ox, double oy, const quad& aabb);
     bool contains(double ox, double oy, const pos2d& pos);
     double clip_x(double ox, double oy, double dx, const quad& aabb);
@@ -70,13 +77,14 @@ struct block_behavior : group {
     block_tick_mode tick_mode = block_tick_mode::random;
     block_shape shape = block_shape::vaccum;
     block_model* model;
+    double friction = 0.65;
 
     bool contains(const location& loc) const override;
 
     std::function<float(dimension* dim, const pos2i& pos, int pipe)> cast_light;
     std::function<float(dimension* dim, const pos2i& pos, int pipe, float val)> block_light;
     std::function<quad(dimension* dim, const pos2i& pos)> render_place;
-    std::function<cube_outline(dimension* dim, const pos2i& pos, entity* e)> voxel_shape;
+    std::function<cube_outline&(dimension* dim, const pos2i& pos, obs<entity> e)> voxel_shape;
     std::function<std::vector<item_stack>(dimension* dim, const pos2i& pos, const uuid& e)> get_loot;
     std::function<void(dimension* dim, const pos2i& pos)> tick;
     std::function<block_entity(dimension* dim, const pos2i& pos)> make_entity;

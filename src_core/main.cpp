@@ -3,13 +3,16 @@
 
 #include "audio/device.h"
 #include "core/buffer.h"
+#include "core/input.h"
 #include "core/io.h"
+#include "core/key.h"
 #include "core/load.h"
 #include "core/log.h"
 #include "core/rand.h"
 #include "ctt.h"
 #include "gfx/atlas.h"
 #include "gfx/brush.h"
+#include "gfx/camera.h"
 #include "gfx/device.h"
 #include "gfx/font.h"
 #include "gfx/gui.h"
@@ -25,6 +28,7 @@
 #include "world/block.h"
 #include "world/chunk.h"
 #include "world/dim.h"
+#include "world/entity.h"
 
 using namespace arc;
 
@@ -74,7 +78,7 @@ int main() {
     beh = block_behavior();
     beh.shape = block_shape::opaque;
     beh.cast_light = [](dimension* dim, const pos2i& pos, int pipe) {
-        return 0.5 * std::sin(pos.x + pipe * pos.y + pipe + clock::now().ticks / 15.0);
+        return 0.9 * std::sin(pos.x + pipe * pos.y + pipe + clock::now().ticks / 15.0);
     };
     auto ROCK_MODEL = R_block_models().make(
         "arc:rock", block_model{.dropper = block_dropper::repeat,
@@ -90,20 +94,28 @@ int main() {
 
     dim = new dimension();
     auto chunk_ptr = std::make_shared<chunk>();
+    auto chunk_ptr1 = std::make_shared<chunk>();
     chunk_ptr->init(dim, {0, 0});
+    chunk_ptr1->init(dim, {0, 1});
     dim->set_chunk({0, 0}, chunk_ptr);
+    dim->set_chunk({0, 1}, chunk_ptr1);
     dim->init();
     for (int x = 0; x < 16; x++) {
-        for (int y = 1; y < 16; y++) {
-            if (x != 4 && x != 5) dim->set_block(random::rg->next_bool() ? DIRT : ROCK, {x, y});
+        for (int y = 3; y < 16; y++) {
+            dim->set_block(random::rg->next_bool() ? block_void : ROCK, {x, y});
             dim->set_back_block(random::rg->next_bool() ? DIRT : ROCK, {x, y});
+        }
+    }
+    for (int x = 0; x < 16; x++) {
+        for (int y = 16; y < 32; y++) {
+            dim->set_block(ROCK, {x, y});
         }
     }
 
     fnt = font::load(path::open_local("gfx/font/main.ttf"), 12, font_style::regular);
-    auto tex = texture::make(image::load(path::open_local("gfx/lxj.png")));
+    auto tex = texture::make(image::load(path::open_local("gfx/misc/logo.png")));
     pct = nine_patches(tex);
-    get_resource_map_()["arc:gfx/misc/test.png"] = tex;
+    get_resource_map_()["arc:gfx/misc/logo.png"] = tex;
 
     lua_make_state();
     lua_bind_modules();
@@ -139,6 +151,11 @@ int main() {
     g->join(tv);
 
     g->display();
+    std::shared_ptr<entity> e_0 = std::make_shared<entity>();
+    e_0->box = quad::center(2.5, 0, 1.75, 2.75);
+    e_0->mass = 60;
+    e_0->cat = entity_cat::creature;
+    dim->spawn_entity(e_0);
 
     uint16_t port = gen_tcp_port_();
     socks.start(port);
@@ -146,14 +163,28 @@ int main() {
 
     event_tick += [&]() {
         dim->tick_systems();
-        lua_protected_call(lua_get<lua_function>("tick"), dim);
-        sockc.send_to_server(packet::make<packet_dummy>("hello world"));
+        // lua_protected_call(lua_get<lua_function>("tick"), dim);
+        // sockc.send_to_server(packet::make<packet_dummy>("hello world"));
         sockc.tick();
         socks.tick();
         bool b = random::rg->next_bool();
         dim->set_block(b ? DIRT : ROCK, {2, 2});
         dim->tick();
         dim->light_executor->tick(quad::center(10, 10, 40, 30));
+
+        const double vi = 8.5;
+        if (key_held(ARC_KEY_D)) e_0->move({vi * clock::now().delta, 0}, {4, 0});
+        if (key_held(ARC_KEY_A)) e_0->move({-vi * clock::now().delta, 0}, {4, 0});
+        if (key_held(ARC_KEY_SPACE) && (e_0->phy_status & phybit::touch_d)) {
+            e_0->impulse({0, -20.5 * 60});
+        }
+
+        camera& c = camera::world({10, 10}, 60);
+        vec2 curs = get_cursor();
+        c.unproject(curs);
+
+        if (key_held(ARC_MOUSE_BUTTON_LEFT)) dim->set_block(block_void, {curs.x, curs.y});
+        if (key_held(ARC_MOUSE_BUTTON_RIGHT)) dim->set_block(ROCK, {curs.x, curs.y});
     };
 
     event_render += [&](brush* brush) {
@@ -165,21 +196,27 @@ int main() {
 
         brush->use_camera(camera::gui());
         fnt->make_vtx(brush, "fps: " + std::to_string(tk_real_fps()), 15, 15);
+        fnt->make_vtx(brush, "velo: " + std::to_string(e_0->velocity.x), 15, 30);
         // lua_protected_call(lua_get<lua_function>("draw"), brush);
 
-        brush->use_camera(camera::world({10, 10}, 40));
+        brush->use_camera(camera::world({10, 10}, 60));
         reflush_chunk_models_(dim, {0, 0});
-        chunk_ptr->tick();
         lwrd::world_render_begin();
         lwrd::world_back_buffer()->retry(brush);
         chunk_ptr->model->render(brush, chunk_mesh_layer::back_block);
+        chunk_ptr1->model->render(brush, chunk_mesh_layer::back_block);
         chunk_ptr->model->render(brush, chunk_mesh_layer::back_block_border);
+        chunk_ptr1->model->render(brush, chunk_mesh_layer::back_block_border);
         lwrd::world_back_buffer()->record(brush);
         lwrd::world_front_buffer()->retry(brush);
         chunk_ptr->model->render(brush, chunk_mesh_layer::furniture);
+        chunk_ptr1->model->render(brush, chunk_mesh_layer::furniture);
+        brush->draw_rect_outline(e_0->lerped_box_());
         chunk_ptr->model->render(brush, chunk_mesh_layer::block);
+        chunk_ptr1->model->render(brush, chunk_mesh_layer::block);
         chunk_ptr->model->render(brush, chunk_mesh_layer::block_border);
-        chunk_ptr->model->render(brush, chunk_mesh_layer::overlay);
+        chunk_ptr1->model->render(brush, chunk_mesh_layer::block_border);
+
         lwrd::world_front_buffer()->record(brush);
         lwrd::world_render(brush, dim);
         brush->draw_rect_outline({0, 0, 1, 1});
@@ -192,10 +229,11 @@ int main() {
     tk_set_device_option(device_option::listener, vec3(0, 0, 0));
     tk_end_make_device();
 
-    tk_lifecycle(60, 20, false);
+    tk_lifecycle(0, 20, false);
 
     sockc.disconnect();
     socks.stop();
+    lua_free();
 
     delete dim;
 }

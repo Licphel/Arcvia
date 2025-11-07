@@ -16,7 +16,7 @@
         "CMAKE_EXPORT_COMPILE_COMMANDS": true,
         "CMAKE_C_COMPILER": "C:/msys64/clang64/bin/clang.exe",
         "CMAKE_CXX_COMPILER": "C:/msys64/clang64/bin/clang++.exe",
-        "CMAKE_CXX_FLAGS_DEBUG": "-g -O0 -fstandalone-debug"
+        "CMAKE_CXX_FLAGS_DEBUG": "-g -fsanitize=address -fno-omit-frame-pointer -O0 -fstandalone-debug"
       },
       "environment": {
         "PATH": "C:/msys64/clang64/bin"

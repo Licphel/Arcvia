@@ -37,24 +37,25 @@ void chunk_model::instant_rebuild(int layer) {
 
     switch (static_cast<chunk_mesh_layer>(layer)) {
         case chunk_mesh_layer::back_block:
+            built[layer] = false;
+            built[layer + 1] = false;
             // back block mesh
             unmeshed_back_blocks.clear();
             brush_ = meshes[layer]->retry();
-            for (int x = x0; x < ARC_CHUNK_SIZE + x0; x++) {
-                for (int y = y0; y < ARC_CHUNK_SIZE + y0; y++) {
-                    pos2i pos = pos2i(x, y);
-                    block_behavior* block = parent->find_back_block(pos);
-                    if (block == block_void) continue;
 
-                    bool rself = parent->find_block(pos)->shape != block_shape::opaque;
-                    if (block->model->dynamic_render && rself) {
-                        unmeshed_back_blocks.emplace_back(pos, block);
-                    } else {
-                        if (rself) block->model->make_block(brush_, block->model, parent->dim, block, pos.raw_2d());
-                        borders.emplace_back(pos, block);
-                    }
+            scan_cxc(parent, [&](const pos2i& pos) {
+                block_behavior* block = parent->find_back_block(pos);
+                if (block == block_void) return;
+
+                bool rself = parent->find_block(pos)->shape != block_shape::opaque;
+                if (block->model->dynamic_render && rself) {
+                    unmeshed_back_blocks.emplace_back(pos, block);
+                } else {
+                    if (rself) block->model->make_block(brush_, block->model, parent->dim, block, pos.raw_2d());
+                    borders.emplace_back(pos, block);
                 }
-            }
+            });
+
             std::sort(unmeshed_back_blocks.begin(), unmeshed_back_blocks.end(), cmp_sorted_draw_);
             meshes[layer]->record();
 
@@ -74,22 +75,22 @@ void chunk_model::instant_rebuild(int layer) {
             built[layer + 1] = true;
             break;
         case arc::chunk_mesh_layer::furniture:
+            built[layer] = false;
             // furniture mesh
             unmeshed_furnitures.clear();
             brush_ = meshes[layer]->retry();
-            for (int x = x0; x < ARC_CHUNK_SIZE + x0; x++) {
-                for (int y = y0; y < ARC_CHUNK_SIZE + y0; y++) {
-                    pos2i pos = pos2i(x, y);
-                    block_behavior* block = parent->find_block(pos);
-                    if (block == block_void) continue;
 
-                    if (block->model->dynamic_render) {
-                        unmeshed_furnitures.emplace_back(pos, block);
-                    } else {
-                        block->model->make_block(brush_, block->model, parent->dim, block, pos.raw_2d());
-                    }
+            scan_cxc(parent, [&](const pos2i& pos) {
+                block_behavior* block = parent->find_block(pos);
+                if (block == block_void) return;
+
+                if (block->model->dynamic_render) {
+                    unmeshed_furnitures.emplace_back(pos, block);
+                } else {
+                    block->model->make_block(brush_, block->model, parent->dim, block, pos.raw_2d());
                 }
-            }
+            });
+
             std::sort(unmeshed_furnitures.begin(), unmeshed_furnitures.end(), cmp_sorted_draw_);
             meshes[layer]->record();
 
@@ -99,23 +100,24 @@ void chunk_model::instant_rebuild(int layer) {
             built[layer] = true;
             break;
         case chunk_mesh_layer::block:
+            built[layer] = false;
+            built[layer + 1] = false;
             // block mesh
             unmeshed_blocks.clear();
             brush_ = meshes[layer]->retry();
-            for (int x = x0; x < ARC_CHUNK_SIZE + x0; x++) {
-                for (int y = y0; y < ARC_CHUNK_SIZE + y0; y++) {
-                    pos2i pos = pos2i(x, y);
-                    block_behavior* block = parent->find_block(pos);
-                    if (block == block_void) continue;
 
-                    if (block->model->dynamic_render) {
-                        unmeshed_blocks.emplace_back(pos, block);
-                    } else {
-                        block->model->make_block(brush_, block->model, parent->dim, block, pos.raw_2d());
-                        borders.emplace_back(pos, block);
-                    }
+            scan_cxc(parent, [&](const pos2i& pos) {
+                block_behavior* block = parent->find_block(pos);
+                if (block == block_void) return;
+
+                if (block->model->dynamic_render) {
+                    unmeshed_blocks.emplace_back(pos, block);
+                } else {
+                    block->model->make_block(brush_, block->model, parent->dim, block, pos.raw_2d());
+                    borders.emplace_back(pos, block);
                 }
-            }
+            });
+
             std::sort(unmeshed_blocks.begin(), unmeshed_blocks.end(), cmp_sorted_draw_);
             meshes[layer]->record();
 
@@ -141,14 +143,14 @@ void chunk_model::instant_rebuild(int layer) {
 
 void chunk_model::tick() {
     for (int i = 0; i < ARC_CHUNK_MESH_LAYER_COUNT; i++) {
-        bool& mk = should_rebuild[i];
-        if (mk)
+        bool expected = true;
+        if (should_rebuild[i].compare_exchange_strong(expected, false)) {
 #ifdef ARC_MULTITHREADED_MESH_BUILD
             thread_pool::execute([this, i]() { instant_rebuild(i); });
 #else
             instant_rebuild(i);
 #endif
-        mk = false;
+        }
     }
 }
 
@@ -206,10 +208,10 @@ void chunk_model::render(brush* brush, chunk_mesh_layer layer) {
     }
 }
 
-static chunk* ccache_[ARC_CHUNK_CACHE_SIZE_X][ARC_CHUNK_CACHE_SIZE_Y] = {nullptr};
+static obs<chunk> ccache_[ARC_CHUNK_CACHE_SIZE_X][ARC_CHUNK_CACHE_SIZE_Y] = {nullptr};
 static int corix_ = -ARC_CHUNK_CACHE_SIZE_X / 2, coriy_ = -ARC_CHUNK_CACHE_SIZE_Y / 2;
 
-chunk* fast_get_chunk(int x, int y) {
+obs<chunk> fast_get_chunk(int x, int y) {
     x = findc(x) - corix_;
     y = findc(y) - coriy_;
     if (x < 0 || x >= ARC_CHUNK_CACHE_SIZE_X || y < 0 || y >= ARC_CHUNK_CACHE_SIZE_Y) {
@@ -219,13 +221,13 @@ chunk* fast_get_chunk(int x, int y) {
 }
 
 block_behavior* fast_get_block(int x, int y) {
-    chunk* chunk_ = fast_get_chunk(x, y);
-    return chunk_ == nullptr ? block_void : chunk_->find_block({x, y});
+    auto chunk_ = fast_get_chunk(x, y);
+    return chunk_ ? chunk_->find_block({x, y}) : block_void;
 }
 
 block_behavior* fast_get_back_block(int x, int y) {
-    chunk* chunk_ = fast_get_chunk(x, y);
-    return chunk_ == nullptr ? block_void : chunk_->find_back_block({x, y});
+    auto chunk_ = fast_get_chunk(x, y);
+    return chunk_ ? chunk_->find_back_block({x, y}) : block_void;
 }
 
 void reflush_chunk_models_(dimension* dim, const pos2i& ct) {

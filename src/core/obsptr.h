@@ -11,6 +11,9 @@ struct obs {
    private:
     T* ptr_ = nullptr;
     std::weak_ptr<T> weak_;
+    bool unsafe = false;
+
+    obs(T* ptr) : ptr_(ptr), unsafe(true) {}
 
    public:
     obs() = default;
@@ -24,9 +27,18 @@ struct obs {
     T& operator*() const { return *get(); }
     T* operator->() const { return get(); }
 
-    inline bool expired() const { return weak_.expired(); }
+    inline bool expired() const {
+        if (unsafe) return false;
+        return weak_.expired();
+    }
     inline std::shared_ptr<T> lock() const { return weak_.lock(); }
-    explicit operator bool() const { return !expired() && ptr_ != nullptr; }
+    explicit operator bool() const { return get() != nullptr; }
+
+    // dev should ensure that during the usage of the returned obsptr, the object won't be deleted.
+    template <typename R>
+    static obs<R> unsafe_make(R* rptr) {
+        return obs<R>(rptr);
+    }
 };
 
 }  // namespace arc

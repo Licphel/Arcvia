@@ -8,6 +8,7 @@ struct framebuffer : image {
     quad viewport;
     std::shared_ptr<texture> output = nullptr;
     /* unstable */ unsigned int id_, tid_;
+    /* unstable */ int g_id_;
 
     ~framebuffer();
 

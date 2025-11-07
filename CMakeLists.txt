@@ -100,14 +100,14 @@ target_link_libraries(${EXECUTABLE_NAME} PRIVATE
 if(WIN32)
     if(CMAKE_BUILD_TYPE STREQUAL "Debug")
         target_link_options(${EXECUTABLE_NAME} PRIVATE
-            -mconsole
+            -mconsole 
             -Wl,--disable-dynamicbase
             -Wl,--image-base,0x140000000
             -Wl,-rpath,dlls
         )
     else()
         target_link_options(${EXECUTABLE_NAME} PRIVATE
-            -mwindows
+            -mwindows 
             -Wl,--disable-dynamicbase
             -Wl,--image-base,0x140000000
             -Wl,-rpath,dlls

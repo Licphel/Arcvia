@@ -30,7 +30,7 @@ bool cube::contains(double ox, double oy, const pos2d& pos) {
 double cube::clip_x(double ox, double oy, double dx, const quad& aabb) {
     double ax = ox + x;
     double ay = oy + y;
-    if (aabb.prom_y() <= ay || aabb.y >= ay + h) return dx;  // No collide on y, impossible to collide.
+    if (aabb.prom_y() <= ay || aabb.y >= ay + h) return dx;  // no collide on y, impossible to collide.
 
     if (dx > 0 && aabb.prom_x() <= ax) dx = std::min(dx, ax - aabb.prom_x());
     if (dx < 0 && aabb.x >= ax + w) dx = std::max(dx, ax + w - aabb.x);
@@ -41,13 +41,17 @@ double cube::clip_x(double ox, double oy, double dx, const quad& aabb) {
 double cube::clip_y(double ox, double oy, double dy, const quad& aabb) {
     double ax = ox + x;
     double ay = oy + y;
-    if (aabb.prom_x() <= ax || aabb.x >= ax + w) return dy;  // No collide on y, impossible to collide.
+    if (aabb.prom_x() <= ax || aabb.x >= ax + w) return dy;  // no collide on y, impossible to collide.
 
     if (dy > 0 && aabb.prom_y() <= ay) dy = std::min(dy, ay - aabb.prom_y());
     if (dy < 0 && aabb.y >= ay + h) dy = std::max(dy, ay + h - aabb.y);
 
     return dy;
 }
+
+cube_outline cube_outline::solid = cube_outline::make(cube(0.0, 0.0, 1.0, 1.0));
+cube_outline cube_outline::half = cube_outline::make(cube(0.0, 0.5, 1.0, 0.5));
+cube_outline cube_outline::vaccum = cube_outline::make();
 
 bool cube_outline::intersects(double ox, double oy, const quad& aabb) {
     for (auto& c : *this)

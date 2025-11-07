@@ -113,11 +113,9 @@ void tk_make_handle() {
 
     glEnable(GL_DEBUG_OUTPUT);
     glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
-    glDebugMessageCallback(
-        [](GLenum, GLenum, GLuint, GLenum, GLsizei, const GLchar* txt, const void*) { 
-            print(log_level::info, "GL: {}", txt); 
-        },
-        nullptr);
+    glDebugMessageCallback([](GLenum, GLenum, GLuint, GLenum, GLsizei, const GLchar* txt,
+                              const void*) { print(log_level::info, "GL: {}", txt); },
+                           nullptr);
     glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, nullptr, GL_TRUE);
 }
 
@@ -192,6 +190,7 @@ void tk_lifecycle(int fps, int tps, bool vsync) {
     double current = nanos_();
     double logic_debt = 0.0;
     double last_render = current;
+    double last_tick = current;
 
     rfps = fps;
     rtps = tps;
@@ -205,8 +204,8 @@ void tk_lifecycle(int fps, int tps, bool vsync) {
         while (!tk_poll_events()) {
             current = nanos_();
 
-            logic_debt += (current - last_calc);
-            last_calc = current;
+            logic_debt += (current - last_tick);
+            last_tick = current;
 
             int max_catch = 4;
             just_ticked_ = false;
@@ -222,9 +221,9 @@ void tk_lifecycle(int fps, int tps, bool vsync) {
                 logic_debt -= DT_LOGIC_NS;
             }
 
-            if (fps <= 0 || current - last_render >= DT_RENDER_NS) {
-                clock::now().partial = std::clamp(1.0 - (logic_debt / DT_LOGIC_NS), 0.0, 1.0);
+            clock::now().partial = std::clamp(logic_debt / DT_LOGIC_NS, 0.0, 1.0);
 
+            if (fps <= 0 || current - last_render >= DT_RENDER_NS) {
                 auto* brush = direct_mesh->brush_.get();
                 event_render(brush);
                 clock::now().render_ticks++;
@@ -232,8 +231,7 @@ void tk_lifecycle(int fps, int tps, bool vsync) {
                 tk_swap_buffers();
 
                 render_frm++;
-                last_render += DT_RENDER_NS;
-                if (last_render < current - DT_RENDER_NS) last_render = current;
+                last_render = current;
             }
 
             if (current - last_stat > 500'000'000.0) {
@@ -283,8 +281,8 @@ double tk_consume_scroll_() {
 }
 
 int tk_get_scroll_towards_() {
-    if (mscy > 10E-4) return ARC_SCROLL_UP;
-    if (mscy < -10E-4) return ARC_SCROLL_DOWN;
+    if (mscy > ARC_MTOL) return ARC_SCROLL_UP;
+    if (mscy < -ARC_MTOL) return ARC_SCROLL_DOWN;
     return ARC_SCROLL_NO;
 }
 

@@ -27,7 +27,10 @@ void chunk::init(dimension* dim, const pos2i& pos) {
     model->init(this);
 }
 
-void chunk::tick() { model->tick(); }
+void chunk::tick() {
+    model->tick();
+    tick_entities();
+}
 
 block_behavior* chunk::find_block(const pos2i& pos) {
     uint32_t bid = advance_read_ptr_<uint32_t>(blocks_.find(pos.x, pos.y));
@@ -42,6 +45,7 @@ void chunk::set_block(block_behavior* block, const pos2i& pos, set_block_flag fl
         model->rebuild(pos, chunk_mesh_layer::furniture);
     } else {
         model->rebuild(pos, chunk_mesh_layer::block);
+        model->rebuild(pos, chunk_mesh_layer::back_block);
     }
 }
 
@@ -98,15 +102,16 @@ void chunk::tick_entities() {
 
         obs<entity> e = entities[i];
 
-        if(!e) continue;
-        if (dim->ticks == e->wt_anc_) continue;  // Tick wrongly invoked. When transferring this happens.
+        if (!e) continue;
+        if (dim->ticks == e->wt_anc_) continue;  // tick wrongly invoked. When transferring this happens.
         e->wt_anc_ = dim->ticks;
-        e->tick();
+        e->motion();
+        if(e->tick) e->tick(e);
 
-        if (e->parent == nullptr) e->parent = shared_from_this();
+        if (e->parent == nullptr) e->parent = obs<chunk>::unsafe_make(this);
 
         const pos2i& oldpos = e->parent->pos;
-        const pos2i& newpos = e->motion->pos.findc();
+        const pos2i& newpos = e->pos.findc();
         if (oldpos != newpos) {
             chunk* newc = dim->find_chunk(newpos);
             if (newc != nullptr) {
@@ -129,7 +134,7 @@ void chunk::remove_entity(obs<entity> e, bool global) {
 
 void chunk::spawn_entity(std::shared_ptr<entity> e) {
     entities.push_back(e);
-    e->parent = shared_from_this();
+    e->parent = obs<chunk>::unsafe_make(this);
 }
 
 void chunk::move_entity(std::shared_ptr<entity> e, chunk* newc) {
@@ -138,8 +143,7 @@ void chunk::move_entity(std::shared_ptr<entity> e, chunk* newc) {
 }
 
 void chunk::clear_entity() {
-    for(auto& e : entities)
-        dim->remove_entity(e->uuid);
+    for (auto& e : entities) dim->remove_entity(e->uuid);
     entities.clear();
 }
 

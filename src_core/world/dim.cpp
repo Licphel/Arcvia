@@ -1,5 +1,6 @@
 #include "world/dim.h"
 
+#include "ctt.h"
 #include "entity.h"
 #include "render/light.h"
 #include "world/block.h"
@@ -12,7 +13,12 @@ void dimension::init() {
     light_executor->init(this);
 }
 
-void dimension::tick() {}
+void dimension::tick() {
+    for (auto& kv : chunk_map) {
+        kv.second->tick();
+    }
+    ticks++;
+}
 
 obs<chunk> dimension::find_chunk(const pos2i& pos, find_chunk_flag flag) {
     auto it = chunk_map.find(pos);
@@ -50,17 +56,17 @@ std::shared_ptr<chunk> dimension::consume_chunk_cache(const pos2i& pos) {
 
 void dimension::set_chunk(const pos2i& pos, std::shared_ptr<chunk> chunk_) {
     std::lock_guard<std::mutex> lock(chunkop_mutex_);
-    chunk_map[pos.findc()] = chunk_;
+    chunk_map[pos] = chunk_;
 }
 
 void dimension::set_chunk_cache(const pos2i& pos, std::shared_ptr<chunk> chunk_) {
     std::lock_guard<std::mutex> lock(chunkcop_mutex_);
-    chunk_cache_map[pos.findc()] = chunk_;
+    chunk_cache_map[pos] = chunk_;
 }
 
 block_behavior* dimension::find_block(const pos2i& pos) {
     auto chunk_ = find_chunk_by_block(pos, find_chunk_flag::cache);
-    return chunk_ == nullptr ? nullptr : chunk_->find_block(pos);
+    return chunk_ == nullptr ? block_void : chunk_->find_block(pos);
 }
 
 void dimension::set_block(block_behavior* block, const pos2i& pos, set_block_flag flag) {
@@ -70,7 +76,7 @@ void dimension::set_block(block_behavior* block, const pos2i& pos, set_block_fla
 
 block_behavior* dimension::find_back_block(const pos2i& pos) {
     auto chunk_ = find_chunk_by_block(pos, find_chunk_flag::cache);
-    return chunk_ == nullptr ? nullptr : chunk_->find_back_block(pos);
+    return chunk_ == nullptr ? block_void : chunk_->find_back_block(pos);
 }
 
 void dimension::set_back_block(block_behavior* block, const pos2i& pos, set_block_flag flag) {
@@ -90,7 +96,7 @@ void dimension::set_block_entity(std::shared_ptr<block_entity> ent, const pos2i&
 
 liquid_stack dimension::find_liquid_stack(const pos2i& pos) {
     auto chunk_ = find_chunk_by_block(pos, find_chunk_flag::cache);
-    return chunk_ == nullptr ? liquid_stack(nullptr, 0) : chunk_->find_liquid_stack(pos);
+    return chunk_ == nullptr ? liquid_stack(liquid_void, 0) : chunk_->find_liquid_stack(pos);
 }
 
 void dimension::set_liquid_stack(const liquid_stack& s, const pos2i& pos) {
@@ -109,20 +115,21 @@ obs<codec_map> dimension::ensure_place_cdmap(const pos2i& pos) {
 }
 
 void dimension::spawn_entity(std::shared_ptr<entity> e) {
-    entities[e->uuid] = e;
-    obs<chunk> chunk_ = find_chunk(e->motion->pos.findc());
+    e->dim = this;
+    obs<chunk> chunk_ = find_chunk(e->pos.findc());
+    e->parent = chunk_;
     if (chunk_) chunk_->spawn_entity(e);
+    entities[e->uuid] = e;
 }
 
 obs<entity> dimension::find_entity(const uuid& id) { return entities[id]; }
 
-void dimension::remove_entity(const uuid& id) { 
+void dimension::remove_entity(const uuid& id) {
     auto it = entities.find(id);
-    if(it == entities.end()) return;
+    if (it == entities.end()) return;
 
     obs<chunk> chunk_ = it->second->parent;
-    if(chunk_)
-        chunk_->remove_entity(it->second, false);
+    if (chunk_) chunk_->remove_entity(it->second, false);
     entities.erase(it);
 }
 

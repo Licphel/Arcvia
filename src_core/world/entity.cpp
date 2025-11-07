@@ -108,7 +108,7 @@ void entity::motion() {
     // It's rational - we only check it when we find something blocking entity's pace forwards.
     if (cat == entity_cat::creature) {
         // step up
-        if (phy_status & phybit::touch_d && std::abs(dx - dx0) > ARC_MTOL) {
+        if (((phy_status & phybit::touch_d) || (phy_status & phybit::swim)) && std::abs(dx - dx0) > ARC_MTOL) {
             quad step_to = origin;
             double dx1 = dx0;
             step_to.translate(0, -ARC_STEP_H);
@@ -198,15 +198,16 @@ void entity::motion() {
     // here we specially treat stepping - do not let a creature step up and stop on x axis.
     if (l && velocity.x < 0) velocity.x *= -rebound;
     if (r && velocity.x > 0) velocity.x *= -rebound;
+}
 
+void entity::force() {
+    double dt = clock::now().delta;
     // ------ force set session ------ //
 
     // gravity session
     impulse(vec2(0, ARC_GRAVITY_A * mass * dt));
 
     // liquid session
-    // from block^2 to m^2
-    double area_of_all = unit::to_meter2(box.area());
 
     if (!low_phy_sim) {
         // liquid collision calculation
@@ -214,27 +215,28 @@ void entity::motion() {
         for (auto& pos : dim_util::get_maybe_intersected_poses(box, 0, 0)) {
             liquid_stack qstack = dim->find_liquid_stack(pos);
             if (qstack.is_empty() || wetted_volume.contains(qstack.liquid)) continue;
-            quad posr = quad::corner(pos.x, pos.y, 1, qstack.percentage());
+            double perct = qstack.percentage();
+            quad posr = quad::corner(pos.x, pos.y + (1.0 - perct), 1.0, perct);
             quad inters = quad::intersection_of(posr, box);
-            double area_in = unit::to_meter2(inters.area());
-            if (area_in > 0) wetted_volume[qstack.liquid] += area_in;
+            double vol_in = unit::to_meter_vol(inters);
+            if (vol_in > 0) wetted_volume[qstack.liquid] += vol_in;
         }
 
         if (!(ignore_lf_ & physic_ignore::liquid_f)) {
             // liquid forces calculation
             for (auto& kv : wetted_volume) {
                 liquid_behavior* liquid = kv.first;
-                double area = kv.second;
+                double vol = kv.second;
                 liquid->entity_collide(obs<entity>::unsafe_make(this));
                 // floating force
-                impulse(vec2(0, -ARC_GRAVITY_A * std::min(liquid->density(dim) * (area / area_of_all), mass) * dt));
+                impulse(vec2(0, -ARC_GRAVITY_A * ARC_E_FUL * liquid->density(dim) * vol * dt));
                 // dragging force
                 double rho = liquid->stickiness(dim);
                 double spd2 = velocity.length_powered();
-                double linear_drag = rho * area * 0.5;
-                double quadratic_drag = rho * ARC_E_C_D * area * spd2 * 0.5;
+                double linear_drag = rho * vol * 0.5;
+                double quadratic_drag = rho * ARC_E_C_D * vol * spd2 * 0.5;
                 double total_drag = linear_drag + quadratic_drag;
-                impulse(-velocity.normal() * total_drag * dt);
+                impulse_limited(-velocity.normal() * total_drag * dt);
             }
         }
     }
@@ -242,15 +244,30 @@ void entity::motion() {
     // air session
     double spd2 = velocity.length_powered();
     if (spd2 > ARC_MTOL && !low_phy_sim && !(ignore_lf_ & physic_ignore::air_f)) {
-        impulse(-velocity.normal() * ARC_AIR_RHO * ARC_E_C_D * area_of_all * spd2 * 0.5 * dt);
+        impulse_limited(-velocity.normal() * ARC_AIR_RHO * ARC_E_C_D * unit::to_meter_vol(box) * spd2 * 0.5 * dt);
     }
 
     // block interop session
     if (spd2 > ARC_MTOL && !(ignore_lf_ & physic_ignore::land_f)) {
-        vec2 min = -velocity.normal();
         for (auto& bpos : collision) {
             double mu = dim->find_block(bpos)->friction;
-            impulse_limited((velocity.length_powered() > 1.0 ? -velocity : min) * mu * mass * ARC_GRAVITY_A * dt);
+
+            vec2 normal;
+            vec2 to_center = vec2(bpos.x + 0.5 - pos.x, bpos.y + 0.5 - pos.y);
+
+            if (std::abs(to_center.x) > std::abs(to_center.y))
+                normal.x = (to_center.x > 0) ? 1.0 : -1.0;
+            else
+                normal.y = (to_center.y > 0) ? 1.0 : -1.0;
+
+            double v_normal = vec2::dot(velocity, normal);
+            vec2 velocity_normal = normal * v_normal;
+            vec2 velocity_tangent = velocity - velocity_normal;
+
+            if (velocity_tangent.length_powered() > ARC_MTOL) {
+                vec2 friction_impulse = -velocity_tangent.normal() * mu * mass * ARC_GRAVITY_A * dt;
+                impulse_limited(friction_impulse);
+            }
         }
     }
 

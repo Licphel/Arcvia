@@ -16,6 +16,7 @@
 // I make the gravity weaker for flexibility.
 #define ARC_GRAVITY_A 9.8
 #define ARC_E_C_D 0.68
+#define ARC_E_FUL 0.5
 // unit: block
 #define ARC_STEP_H 1.15
 
@@ -25,6 +26,8 @@ namespace unit {
 
 inline double to_meter(double v) { return v * 0.5; }
 inline double to_meter2(double v) { return v * 0.25; }
+inline double to_meter3(double v) { return v * 0.125; }
+inline double to_meter_vol(const quad& box) { return std::pow(box.area(), 1.5); }
 inline double to_block(double v) { return v * 2; }
 inline double to_block2(double v) { return v * 4; }
 
@@ -97,6 +100,7 @@ struct entity : physic_obj {
     entity_cat cat;
 
     void motion();
+    void force();
     std::function<void(entity* self)> tick;
     std::function<float(entity* self, int pipe)> cast_light;
 };

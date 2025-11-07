@@ -113,8 +113,9 @@ void chunk::tick_entities() {
         if (!e) continue;
         if (dim->ticks == e->wt_anc_) continue;  // tick wrongly invoked. When transferring this happens.
         e->wt_anc_ = dim->ticks;
+        e->force();
         e->motion();
-        if(e->tick) e->tick(e);
+        if (e->tick) e->tick(e);
 
         if (e->parent == nullptr) e->parent = obs<chunk>::unsafe_make(this);
 

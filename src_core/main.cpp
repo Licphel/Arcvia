@@ -80,9 +80,6 @@ int main() {
     DIRT->model = DIRT_MODEL;
     beh = block_behavior();
     beh.shape = block_shape::opaque;
-    beh.cast_light = [](dimension* dim, const pos2i& pos, int pipe) {
-        return 0.9 * std::sin(pos.x + pipe * pos.y + pipe + clock::now().ticks / 15.0);
-    };
     auto ROCK_MODEL = R_block_models().make(
         "arc:rock", block_model{.dropper = block_dropper::repeat,
                                 .dynamic_render = false,
@@ -97,7 +94,7 @@ int main() {
         return 0.35;
     };
     lbeh.density = 1000;
-    lbeh.stickiness = 1000;
+    lbeh.stickiness = 3000;
     auto LAVA = R_liquids().make("lava", lbeh);
     auto LAVA_MODEL = R_liquid_models().make(
         "lava", liquid_model{.tex = texture::make(image::load(path::open_local("gfx/lava.png"))),
@@ -199,7 +196,7 @@ int main() {
             e_0->impulse({0, -5.0 * 60});
         }
         if (key_held(ARC_KEY_SPACE) && (e_0->phy_status & phybit::swim)) {
-            e_0->impulse({0, -5.0 * 60 * clock::now().delta});
+            e_0->impulse({0, -7.5 * 60 * clock::now().delta});
         }
 
         camera& c = camera::world({10, 10}, 60);
